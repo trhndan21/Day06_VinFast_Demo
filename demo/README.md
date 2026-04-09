@@ -1,6 +1,6 @@
 # VinFast Auto-Agent Demo
 
-Web app tư vấn xe VinFast 24/7 bằng AI ReAct Agent. Kiến trúc Dual-LLM (gpt-4o-mini + gpt-4-turbo), tool calling (Tavily search tối đa 2 lần), multi-session memory, guardrails, và data flywheel cho fine-tuning.
+Web app tư vấn xe VinFast 24/7 bằng LangGraph + tool calling. Kiến trúc dual-LLM: model guardrail và model reasoning lấy từ `constants.py` (hiện `GUARDRAIL_MODEL` / `REASONING_MODEL`, ví dụ `gpt-5.4-mini` + `gpt-5.4`). Tavily search tối đa 2 lần/lượt, multi-session memory, guardrails, data flywheel (JSONL).
 
 ## Cấu Trúc Thư Mục
 
@@ -66,9 +66,10 @@ export TAVILY_API_KEY="tvly-..."
 
 ### 4️⃣ Run
 ```bash
-streamlit run app.py
+streamlit run main.py
+# hoặc chỉ chat: streamlit run app.py
 ```
-Ứng dụng sẽ mở tại `http://localhost:8501`
+Ứng dụng sẽ mở tại `http://localhost:8501` (`main.py` mở multipage: Chat + Admin).
 
 ---
 
@@ -83,9 +84,9 @@ LangGraph (engine.py):
   [guardrail] → [reasoning ↔ tools (max 2x)] → [parse_answer]
     ⬇
 Post-processing (app.py):
-  • Hiển thị answer + confidence
-  • confidence < 7 → gợi booking
-  • Feedback 👍/👎 → logger
+  • Hiển thị answer + confidence (+ meta nếu có)
+  • `final_state.suggest_human` true (trong `engine`: chủ yếu khi `confidence` < `CONFIDENCE_THRESHOLD`, 7) → card gợi tư vấn + form lead
+  • Feedback 👍/👎 → `logger.append_entry` → file JSONL
   • Lưu memory_cache + auto-summarize (≥3 lượt)
     ⬇
 Data Flywheel: training_data.jsonl (fine-tune data)
@@ -97,13 +98,13 @@ Data Flywheel: training_data.jsonl (fine-tune data)
 
 | Tính năng | Mô tả |
 |----------|-------|
-| **Multi-session Chat** | Mỗi session độc lập (messages, memory_cache, search_count) |
+| **Multi-session Chat** | Mỗi session độc lập (`messages`, `memory_cache`); `search_count` là trong LangGraph mỗi lượt `invoke`, không lưu trong `session_state` |
 | **Memory Management** | Lưu 1–3 lượt + auto-summarize với LLM mini |
 | **Guardrail** | Lọc OFF_TOPIC / SENSITIVE / COMPETITOR spam |
 | **Tool Calling** | Tavily search, tối đa 2 lần/lượt (search_count < 2) |
-| **Confidence-based UI** | Nếu confidence < 7 → thẻ cảnh báo + nút gọi tư vấn viên |
-| **Data Flywheel** | Mỗi 👎 Sai tự động log → training_data.jsonl |
-| **Feedback Loop** | Nút 👍/👎 dưới mỗi tin nhắn AI → label + insert DB |
+| **Gợi tư vấn viên** | `suggest_human` sau parse (hiện gắn với `confidence` < 7) → thẻ cảnh báo + nút gọi tư vấn viên |
+| **Data Flywheel** | 👍/👎/lead/blocked → append `data/training_data.jsonl` |
+| **Feedback Loop** | Nút 👍/👎 dưới tin assistant → `label` trong JSONL (không qua DB) |
 
 ---
 
@@ -119,4 +120,4 @@ Data Flywheel: training_data.jsonl (fine-tune data)
 
 ## 🧪 Testing
 
-Xem file `test_cases.md` để danh sách test case chi tiết (happy path, low confidence, failure, correction).
+Xem `docs/test_cases.md` — lưu ý vài kịch bản có thể mô tả UX “IDEAL”; đối chiếu `app.py` trước khi coi là pass/fail.

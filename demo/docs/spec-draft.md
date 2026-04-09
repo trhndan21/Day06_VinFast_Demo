@@ -1,4 +1,6 @@
-# SPEC — VinFast AI Product
+# SPEC — VinFast AI Product (draft / `demo/docs`)
+
+> Nháp làm việc. SPEC nộp LMS dùng bản nhóm (vd. `Nhom30-403-Day06/spec-final.md`). Đối chiếu code `demo/` trước khi dùng số liệu hay tên model ở đây.
 
 **Nhóm:** 30-403-Day05
 **Track:** VinFast

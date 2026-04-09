@@ -7,7 +7,7 @@
 │ 1️⃣  STREAMLIT APP (app.py)                                          │
 │ ├─ Nhập: prompt từ người dùng                                       │
 │ ├─ Lấy: memory_cache (lịch sử 1–3 lượt, hoặc tóm tắt)            │
-│ └─ Gửi: {input, chat_history, search_count: 0} → agent_app.invoke()│
+│ └─ Gửi: {input, chat_history} → agent_app.invoke() (search_count khởi tạo trong graph)│
 └──────────────────────────────────────────────────────────────────────┘
                               ⬇
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -16,7 +16,7 @@
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │ 🚨 GUARDRAIL NODE                                             │ │
 │  │ ├─ Input: state.input                                         │ │
-│  │ ├─ LLM mini (gpt-4o-mini): phân loại JSON                    │ │
+│  │ ├─ LLM mini (`GUARDRAIL_MODEL` trong constants.py): phân loại JSON │ │
 │  │ ├─ Kiểm tra: OFF_TOPIC / SENSITIVE / ...                     │ │
 │  │ └─ Output: category + block_message                           │ │
 │  └────────────────────────────────────────────────────────────────┘ │
@@ -32,7 +32,7 @@
 │  │ block_message    │ │ ├─ Gộp: system + history + input     │   │
 │  └──────────────────┘ │ ├─ IF search_count < 2:              │   │
 │                       │ │    Bind tool search_web_tool       │   │
-│                       │ ├─ LLM gpt-4-turbo: invoke()         │   │
+│                       │ ├─ LLM chính (`REASONING_MODEL`): invoke() │   │
 │                       │ └─ Output: AIMessage (có/không tool) │   │
 │                       └──────────────────────────────────────┘   │
 │                             ⬇ (CONDITIONAL: có tool_calls?)       │
@@ -69,7 +69,7 @@
 │ ├─ Nếu blocked: hiển thị block_message, log "blocked"               │
 │ ├─ Nếu answer:                                                      │
 │ │  ├─ Hiển thị answer                                              │
-│ │  ├─ Đánh giá: confidence < 7 → gợi tư vấn viên                 │
+│ │  ├─ Đánh giá: final_state.suggest_human → card tư vấn (engine: chủ yếu confidence < 7) │
 │ │  └─ Nút feedback: 👍 Tốt / 👎 Sai                               │
 │ ├─ Cập nhật memory_cache: lưu (prompt + answer)                    │
 │ ├─ Nén bộ nhớ: khi memory_cache >= 3 lượt → summarize_memory()   │
@@ -131,7 +131,7 @@ class AgentState(TypedDict):
     chat_history: List[str] # Lịch sử từ Streamlit
     messages: List          # LangGraph message stack
     category: str           # PASS / OFF_TOPIC / SENSITIVE / ...
-    block_message: str      # Thông báo chặn nếu không PASS
+    block_message: str | None  # Thông báo chặn nếu không PASS
     search_count: int       # Số lần gọi Tavily (max ~2)
     answer: str             # Trả lời cuối
     confidence: int         # Độ tin cậy (0–10)
@@ -144,8 +144,8 @@ class AgentState(TypedDict):
 
 | Node | Hành động | Input | Output |
 |------|-----------|-------|--------|
-| **guardrail** | Lọc nội dung bằng LLM mini (gpt-4o-mini) | input | category, block_message |
-| **reasoning** | Gọi LLM chính (gpt-4-turbo), bind tool search tối đa 2 lần (search_count < 2) | messages, search_count | AIMessage (có thể tool_calls) |
+| **guardrail** | Lọc nội dung bằng LLM mini (`GUARDRAIL_MODEL`) | input | category, block_message |
+| **reasoning** | Gọi LLM chính (`REASONING_MODEL`), bind tool search tối đa 2 lần (search_count < 2) | messages, search_count | AIMessage (có thể tool_calls) |
 | **tools** | Thực thi Tavily search, trả ToolMessage, tăng search_count từ 0→1→2 | tool_calls | ToolMessage[], search_count++ |
 | **parse_answer** | Trích JSON từ AIMessage cuối cùng | messages | answer, confidence, source_url, suggest_human |
 
@@ -193,9 +193,9 @@ Lượt 4: memory_cache.length >= 3
 
 ### 5️⃣ **Độ Tin Cậy & Gợi Ý** (parse_answer → app.py)
 
-- **confidence < CONFIDENCE_THRESHOLD (7)**: suggest_human = True
-- Hiển thị nút "📞 Gọi tư vấn viên" → booking form
-- Log lead vào database
+- Trong `node_parse_answer`: `suggest_human` đặt true khi `confidence < CONFIDENCE_THRESHOLD` (7); JSON có thể có `suggest_reason` để hiển thị kèm card (nếu UI dùng).
+- App hiện nút "📞 Gọi tư vấn viên" khi `final_state.suggest_human`.
+- Lead submit form → `append_entry(..., label="lead")` → JSONL, không phải DB.
 
 ---
 

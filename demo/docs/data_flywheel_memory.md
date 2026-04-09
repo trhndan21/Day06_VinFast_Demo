@@ -188,10 +188,13 @@ Mỗi lần user bấm **👎 Sai**, hệ thống tự động log {prompt, resp
 │ 1. Mở file: data/training_data.jsonl                │
 │ 2. Ghi dòng JSON:                                    │
 │    {                                                 │
-│      "prompt": "VF 8 giá bao nhiêu?",               │
-│      "response": "[BAD RESPONSE]",                  │
-│      "label": "bad",                                │
-│      "timestamp": "2026-04-09T15:30:45"             │
+│      "messages": [                                   │
+│        {"role":"system","content":"..."},            │
+│        {"role":"user","content":"VF 8 giá?"},       │
+│        {"role":"assistant","content":"[BAD]"}        │
+│      ],                                              │
+│      "label": "bad",                                 │
+│      "timestamp": "2026-04-09T15:30:45+00:00"       │
 │    }                                                 │
 │ 3. Close file                                       │
 └──────────────────────────────────────────────────────┘
@@ -199,9 +202,9 @@ Mỗi lần user bấm **👎 Sai**, hệ thống tự động log {prompt, resp
 ┌──────────────────────────────────────────────────────┐
 │ data/training_data.jsonl                             │
 ├──────────────────────────────────────────────────────┤
-│ {"prompt": "VF 8...", "response": "...", "label": "bad"} │
-│ {"prompt": "VF 9...", "response": "...", "label": "good"} │
-│ {"prompt": "Toyota...", "response": "...", "label": "blocked"} │
+│ {"messages":[...], "label": "bad"}                    │
+│ {"messages":[...], "label": "good"}                   │
+│ {"messages":[...], "label": "blocked"}                │
 │ ... (tích lũy theo thời gian) ...                   │
 └──────────────────────────────────────────────────────┘
                       ⬇
@@ -223,15 +226,13 @@ Mỗi lần user bấm **👎 Sai**, hệ thống tự động log {prompt, resp
 └──────────────────────────────────────────────────────┘
 ```
 
-### Dữ Liệu JSONL (training_data.jsonl)
+### Dữ Liệu JSONL (`training_data.jsonl`)
+
+Mỗi dòng là **một object** do `logger.append_entry` ghi: `messages` (chuẩn chat), `label`, `timestamp`. Ví dụ minh họa (rút gọn `content`):
 
 ```jsonl
-{"prompt": "VF 8 bản nào tốt nhất?", "response": "Pin LFP...", "label": "good", "timestamp": "2026-04-09T10:15:30"}
-{"prompt": "VF 8 bản nào tốt nhất?", "response": "[WRONG RESPONSE]", "label": "bad", "timestamp": "2026-04-09T10:20:45"}
-{"prompt": "Toyota Corolla so với VF 8?", "response": "[SPAM RESPONSE]", "label": "blocked", "timestamp": "2026-04-09T10:30:00"}
-{"prompt": "Giao hàng ở Hà Nội không?", "response": "Dạ có giao...", "label": "good"}
-{"prompt": "Xe bao nhiêu tiền?", "response": "[BAD PRICE INFO]", "label": "bad"}
-... (tích lũy liên tục) ...
+{"messages":[{"role":"system","content":"..."},{"role":"user","content":"VF 8?"},{"role":"assistant","content":"..."}],"label":"good","timestamp":"2026-04-09T10:15:30+00:00"}
+{"messages":[{"role":"system","content":"..."},{"role":"user","content":"VF 8?"},{"role":"assistant","content":"[sai]"}],"label":"bad","timestamp":"2026-04-09T10:20:45+00:00"}
 ```
 
 ### Phân Tích Data Flywheel
